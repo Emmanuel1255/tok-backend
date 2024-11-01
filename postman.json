@@ -1,0 +1,144 @@
+// Base URL: http://localhost:5000/api
+
+// Authentication Endpoints
+1. Register User
+Method: POST
+URL: /auth/register
+Body (JSON):
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "username": "johndoe",
+  "password": "Password123!"
+}
+
+2. Login
+Method: POST
+URL: /auth/login
+Body (JSON):
+{
+  "email": "john@example.com",
+  "password": "Password123!"
+}
+// Save the token from the response for use in other requests
+
+3. Get Current User
+Method: GET
+URL: /auth/me
+Headers: 
+  Authorization: Bearer <your_token>
+
+// Posts Endpoints
+1. Create Post
+Method: POST
+URL: /posts
+Headers: 
+  Authorization: Bearer <your_token>
+Body (JSON):
+{
+  "title": "My First Blog Post",
+  "content": "This is the content of my first blog post.",
+  "category": {
+    "name": "Technology",
+    "slug": "technology"
+  },
+  "tags": ["webdev", "technology"],
+  "status": "published"
+}
+
+2. Get All Posts
+Method: GET
+URL: /posts
+Query Parameters (optional):
+  page: 1
+  limit: 10
+  category: technology
+  search: webdev
+
+3. Get Single Post
+Method: GET
+URL: /posts/:id
+Example: /posts/12345
+
+4. Update Post
+Method: PUT
+URL: /posts/:id
+Headers: 
+  Authorization: Bearer <your_token>
+Body (JSON):
+{
+  "title": "Updated Blog Post",
+  "content": "Updated content"
+}
+
+5. Delete Post
+Method: DELETE
+URL: /posts/:id
+Headers: 
+  Authorization: Bearer <your_token>
+
+6. Like/Unlike Post
+Method: PUT
+URL: /posts/:id/like
+Headers: 
+  Authorization: Bearer <your_token>
+
+7. Add Comment
+Method: POST
+URL: /posts/:id/comments
+Headers: 
+  Authorization: Bearer <your_token>
+Body (JSON):
+{
+  "content": "This is a great post!"
+}
+
+8. Delete Comment
+Method: DELETE
+URL: /posts/:id/comments/:commentId
+Headers: 
+  Authorization: Bearer <your_token>
+
+// User Management Endpoints
+1. Get User Profile
+Method: GET
+URL: /users/profile/:username
+Headers: 
+  Authorization: Bearer <your_token>
+
+2. Update User Details
+Method: PUT
+URL: /auth/updatedetails
+Headers: 
+  Authorization: Bearer <your_token>
+Body (JSON):
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "bio": "I am a software developer"
+}
+
+3. Update Password
+Method: PUT
+URL: /auth/updatepassword
+Headers: 
+  Authorization: Bearer <your_token>
+Body (JSON):
+{
+  "currentPassword": "Password123!",
+  "newPassword": "NewPassword123!"
+}
+
+// For file uploads (e.g., post featured image)
+1. Create/Update Post with Image
+Method: POST/PUT
+URL: /posts
+Headers: 
+  Authorization: Bearer <your_token>
+Body (Form-data):
+  title: "Post with Image"
+  content: "Post content"
+  category: {"name": "Technology", "slug": "technology"}
+  featuredImage: [Select File]
