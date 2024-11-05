@@ -6,8 +6,8 @@ const PostSchema = new mongoose.Schema({
   title: {
     type: String,
     required: [true, 'Please add a title'],
-    trim: true,
-    maxlength: [200, 'Title cannot be more than 200 characters']
+    trim: true
+    // maxlength: [200, 'Title cannot be more than 200 characters']
   },
   slug: String,
   content: {
@@ -15,8 +15,8 @@ const PostSchema = new mongoose.Schema({
     required: [true, 'Please add content']
   },
   excerpt: {
-    type: String,
-    maxlength: [500, 'Excerpt cannot be more than 500 characters']
+    type: String
+    // maxlength: [500, 'Excerpt cannot be more than 500 characters']
   },
   featuredImage: {
     type: String

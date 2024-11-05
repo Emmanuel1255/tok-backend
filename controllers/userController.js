@@ -174,6 +174,7 @@ exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id; // Make sure `req.user.id` is set from authentication middleware
     const updateData = req.body;
+    console.log(updateData);
 
     // If there's a new avatar, include it in the update data
     if (req.file) {

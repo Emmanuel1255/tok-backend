@@ -542,3 +542,48 @@ exports.likePost = async (req, res, next) => {
       next(error);
     }
   };
+
+  exports.editComment = async (req, res, next) => {
+    try {
+      const post = await Post.findById(req.params.id);
+  
+      if (!post) {
+        return res.status(404).json({
+          success: false,
+          message: 'Post not found'
+        });
+      }
+  
+      const comment = post.comments.id(req.params.commentId);
+  
+      if (!comment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Comment not found'
+        });
+      }
+  
+      // Check if user is comment author
+      if (comment.user.toString() !== req.user.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Not authorized to edit this comment'
+        });
+      }
+  
+      comment.content = req.body.content;
+      await post.save();
+  
+      const updatedPost = await Post.findById(post._id)
+        .populate('comments.user', 'firstName lastName username avatar');
+  
+      const updatedComment = updatedPost.comments.id(comment._id);
+  
+      res.status(200).json({
+        success: true,
+        data: updatedComment
+      });
+    } catch (error) {
+      next(error);
+    }
+  };

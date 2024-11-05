@@ -1,16 +1,54 @@
 // middleware/upload.js
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
-// Configure storage
+// Ensure upload directories exist
+const createUploadDirectories = () => {
+  const directories = [
+    'public/uploads/avatars',
+    'public/uploads/posts'
+  ];
+
+  directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`Created directory: ${dir}`);
+    }
+  });
+};
+
+// Create directories on module load
+createUploadDirectories();
+
+// Configure storage for different types of uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'public/uploads/posts/'); // Change path to public folder
+    // Check field name to determine destination
+    const uploadPath = file.fieldname === 'avatar' 
+      ? 'public/uploads/avatars'
+      : 'public/uploads/posts';
+    
+    // Ensure directory exists
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Create unique filename with timestamp and random string
+    // Clean the original filename
+    const fileExt = path.extname(file.originalname).toLowerCase();
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `post-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const prefix = file.fieldname === 'avatar' ? 'avatar' : 'post';
+    
+    // Generate filename
+    const filename = `${prefix}-${uniqueSuffix}${fileExt}`;
+    
+    // Log filename generation
+    console.log(`Generating filename: ${filename} for ${file.fieldname}`);
+    
+    cb(null, filename);
   }
 });
 
@@ -26,38 +64,122 @@ function checkFileType(file, cb) {
   if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb(new Error('Error: Images Only!'), false);
+    cb(new Error('Error: Only JPEG, JPG, PNG, and GIF images are allowed'), false);
   }
 }
 
-// Initialize upload
+// Create multer instance with configuration
 const upload = multer({
   storage,
-  limits: { fileSize: 1000000 }, // 1MB limit
+  limits: { 
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1 // Only allow one file per request
+  },
   fileFilter: function (req, file, cb) {
+    // Log incoming file
+    console.log('Processing file:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype
+    });
+    
     checkFileType(file, cb);
   }
-}).single('featuredImage'); // Handle single file upload named 'featuredImage'
+});
 
-// Wrapper function to handle multer errors
-const uploadMiddleware = (req, res, next) => {
-  upload(req, res, function (err) {
-    if (err instanceof multer.MulterError) {
-      // A Multer error occurred when uploading
-      return res.status(400).json({
-        success: false,
-        message: `Upload error: ${err.message}`
-      });
-    } else if (err) {
-      // An unknown error occurred
-      return res.status(400).json({
-        success: false,
-        message: err.message || 'Error uploading file'
-      });
+// Helper function to handle file upload errors
+const handleUploadError = (err, res) => {
+  if (err instanceof multer.MulterError) {
+    console.error('Multer error:', err);
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        return res.status(400).json({
+          success: false,
+          message: 'File is too large. Maximum size is 5MB'
+        });
+      case 'LIMIT_FILE_COUNT':
+        return res.status(400).json({
+          success: false,
+          message: 'Too many files uploaded'
+        });
+      default:
+        return res.status(400).json({
+          success: false,
+          message: `Upload error: ${err.message}`
+        });
     }
-    // Everything went fine
+  } else if (err) {
+    console.error('Upload error:', err);
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Error uploading file'
+    });
+  }
+};
+
+// Create separate middleware functions for different upload types
+exports.uploadAvatar = (req, res, next) => {
+  console.log('Processing avatar upload request');
+  
+  const avatarUpload = upload.single('avatar');
+  
+  avatarUpload(req, res, function(err) {
+    if (err) {
+      return handleUploadError(err, res);
+    }
+    
+    // Log successful upload
+    if (req.file) {
+      console.log('Avatar uploaded successfully:', {
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path
+      });
+      
+      // Add file URL to request
+      req.file.url = `/uploads/avatars/${req.file.filename}`;
+    } else {
+      console.log('No avatar file provided');
+    }
+    
     next();
   });
 };
 
-module.exports = uploadMiddleware;
+exports.uploadPostImage = (req, res, next) => {
+  console.log('Processing post image upload request');
+  
+  const postImageUpload = upload.single('featuredImage');
+  
+  postImageUpload(req, res, function(err) {
+    if (err) {
+      return handleUploadError(err, res);
+    }
+    
+    // Log successful upload
+    if (req.file) {
+      console.log('Post image uploaded successfully:', {
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path
+      });
+      
+      // Add file URL to request
+      req.file.url = `/uploads/posts/${req.file.filename}`;
+    } else {
+      console.log('No post image file provided');
+    }
+    
+    next();
+  });
+};
+
+// Export the multer instance as well in case it's needed elsewhere
+exports.upload = upload;
+
+// Export helper functions
+exports.checkFileType = checkFileType;
+exports.handleUploadError = handleUploadError;
+exports.createUploadDirectories = createUploadDirectories;

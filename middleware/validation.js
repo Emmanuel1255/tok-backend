@@ -29,9 +29,7 @@ exports.validateUpdateDetails = [
   
   body('bio')
     .optional()
-    .trim()
-    .isLength({ max: 500 })
-    .withMessage('Bio cannot be more than 500 characters'),
+    .trim(),
   
   body('interests')
     .optional()

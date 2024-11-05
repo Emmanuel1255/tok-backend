@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
+const fs = require('fs');
 
 // Load env vars
 dotenv.config();
@@ -80,7 +81,7 @@ if (process.env.NODE_ENV === 'development') {
 const staticFileOptions = {
   dotfiles: 'ignore',
   etag: true,
-  extensions: ['htm', 'html'],
+  extensions: ['htm', 'html', 'jpg', 'jpeg', 'png', 'gif'],
   maxAge: '1d',
   setHeaders: (res, path, stat) => {
     res.set('Access-Control-Allow-Origin', '*');
@@ -90,9 +91,104 @@ const staticFileOptions = {
   }
 };
 
-// Serve static files
+// Create necessary directories
+const directories = [
+  'public',
+  'public/uploads',
+  'public/uploads/posts',
+  'public/uploads/avatars'
+];
+
+directories.forEach(dir => {
+  const fullPath = path.join(__dirname, dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+    console.log(`Created directory: ${fullPath}`);
+  }
+});
+
+// Serve static files - ADD THESE LINES
 app.use('/public', express.static(path.join(__dirname, 'public'), staticFileOptions));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), staticFileOptions));
+
+// Debug routes for file access - ADD THESE ROUTES
+app.get('/check-uploads', (req, res) => {
+  const uploadsPath = path.join(__dirname, 'public/uploads/avatars');
+  try {
+    const files = fs.readdirSync(uploadsPath);
+    res.json({
+      success: true,
+      path: uploadsPath,
+      files: files,
+      exists: fs.existsSync(uploadsPath)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      path: uploadsPath
+    });
+  }
+});
+
+app.get('/test-image/:type/:filename', (req, res) => {
+  const { type, filename } = req.params;
+  const imagePath = path.join(__dirname, 'public/uploads', type, filename);
+  
+  console.log('Requested image path:', imagePath);
+  
+  if (fs.existsSync(imagePath)) {
+    res.sendFile(imagePath);
+  } else {
+    res.status(404).json({
+      success: false,
+      message: 'Image not found',
+      path: imagePath,
+      exists: false
+    });
+  }
+});
+
+app.get('/debug/file-structure', (req, res) => {
+  const basePath = path.join(__dirname, 'public');
+  
+  function getDirectoryStructure(dir) {
+    const items = fs.readdirSync(dir);
+    const structure = {};
+    
+    items.forEach(item => {
+      const fullPath = path.join(dir, item);
+      const stats = fs.statSync(fullPath);
+      
+      if (stats.isDirectory()) {
+        structure[item] = getDirectoryStructure(fullPath);
+      } else {
+        structure[item] = {
+          size: stats.size,
+          created: stats.birthtime,
+          modified: stats.mtime
+        };
+      }
+    });
+    
+    return structure;
+  }
+  
+  try {
+    const structure = getDirectoryStructure(basePath);
+    res.json({
+      success: true,
+      structure,
+      basePath
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      basePath
+    });
+  }
+});
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
@@ -101,6 +197,7 @@ app.options('*', cors(corsOptions));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/posts', require('./routes/posts'));
+app.use('/api/stats', require('./routes/stats'));
 
 // Base route for API status check
 app.get('/api/status', (req, res) => {
@@ -118,36 +215,6 @@ app.get('/api/status', (req, res) => {
       uploads: path.join(__dirname, 'public/uploads')
     }
   });
-});
-
-// Create uploads directory if it doesn't exist
-const fs = require('fs');
-const uploadDirs = [
-  path.join(__dirname, 'public'),
-  path.join(__dirname, 'public/uploads'),
-  path.join(__dirname, 'public/uploads/posts'),
-  path.join(__dirname, 'public/uploads/avatars')
-];
-
-uploadDirs.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`Created directory: ${dir}`);
-  }
-});
-
-// Test route for image serving
-app.get('/test-image/:filename', (req, res) => {
-  const imagePath = path.join(__dirname, 'public/uploads/posts', req.params.filename);
-  if (fs.existsSync(imagePath)) {
-    res.sendFile(imagePath);
-  } else {
-    res.status(404).json({
-      success: false,
-      message: 'Image not found',
-      path: imagePath
-    });
-  }
 });
 
 // Error handling middleware

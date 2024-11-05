@@ -188,6 +188,11 @@ exports.updateDetails = async (req, res, next) => {
       interests: req.body.interests
     };
 
+    // Add avatar if file was uploaded
+    if (req.file) {
+      fieldsToUpdate.avatar = req.file.filename;
+    }
+
     // Remove undefined fields
     Object.keys(fieldsToUpdate).forEach(key => 
       fieldsToUpdate[key] === undefined && delete fieldsToUpdate[key]
@@ -223,6 +228,9 @@ exports.updateDetails = async (req, res, next) => {
       }
     }
 
+    // Get the old user data to handle avatar deletion
+    const oldUser = await User.findById(req.user.id);
+    
     const user = await User.findByIdAndUpdate(
       req.user.id,
       fieldsToUpdate,
@@ -237,6 +245,19 @@ exports.updateDetails = async (req, res, next) => {
         success: false,
         message: 'User not found'
       });
+    }
+
+    // If there's a new avatar and an old one exists, delete the old one
+    if (req.file && oldUser.avatar && oldUser.avatar !== 'default-avatar.jpg') {
+      const fs = require('fs');
+      const path = require('path');
+      const oldAvatarPath = path.join(__dirname, '../public/uploads/avatars', oldUser.avatar);
+      
+      if (fs.existsSync(oldAvatarPath)) {
+        fs.unlink(oldAvatarPath, (err) => {
+          if (err) console.error('Error deleting old avatar:', err);
+        });
+      }
     }
 
     res.status(200).json({
