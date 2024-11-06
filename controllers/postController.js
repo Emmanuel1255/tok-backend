@@ -319,7 +319,11 @@ exports.deletePost = async (req, res, next) => {
       await fs.unlink(imagePath).catch(console.error);
     }
 
-    await post.remove();
+    // Use findByIdAndDelete instead of remove()
+    await Post.findByIdAndDelete(req.params.id);
+
+    // Store post title before deletion for activity tracking
+    const postTitle = post.title;
 
     // Track post deletion activity
     await activityHelpers.postDeleted(req.user._id, postTitle);
